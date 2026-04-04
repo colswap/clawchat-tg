@@ -1,0 +1,65 @@
+name: Upstream Sync
+
+on:
+  schedule:
+    - cron: '0 6 * * 1,4'  # Mon, Thu 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Git
+        run: |
+          git config user.name "ClawChat Bot"
+          git config user.email "bot@clawchat.app"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/DrKLO/Telegram.git || true
+          git fetch upstream master
+
+      - name: Check for changes
+        id: check
+        run: |
+          if git diff --quiet HEAD upstream/master; then
+            echo "status=up-to-date" >> $GITHUB_OUTPUT
+          else
+            echo "status=behind" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Attempt merge
+        if: steps.check.outputs.status == 'behind'
+        id: merge
+        run: |
+          if git merge upstream/master --no-edit; then
+            echo "result=clean" >> $GITHUB_OUTPUT
+          else
+            echo "result=conflict" >> $GITHUB_OUTPUT
+            git merge --abort
+          fi
+
+      - name: Push if clean
+        if: steps.merge.outputs.result == 'clean'
+        run: git push origin master
+
+      - name: Create conflict branch + PR
+        if: steps.merge.outputs.result == 'conflict'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="sync/upstream-$(date +%Y%m%d)"
+          git checkout -b "$BRANCH"
+          git merge upstream/master || true
+          git add -A
+          git commit -m "sync: upstream merge with conflicts" || true
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "🔄 Upstream sync $(date +%Y-%m-%d) (conflicts)" \
+            --body "자동 머지 실패. AI 에이전트가 conflict 해결 예정." \
+            --label "upstream-sync" || true
