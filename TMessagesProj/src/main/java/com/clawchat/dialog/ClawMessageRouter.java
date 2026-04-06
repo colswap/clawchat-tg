@@ -108,6 +108,50 @@ public final class ClawMessageRouter {
     }
 
     /** Cancel an in-flight streaming response on the given ClawChat dialog. */
+    /**
+     * Fetch {@code sessions.history} for the given session key and replay the
+     * returned messages into the store as completed entries. Clears any
+     * existing entries for this dialog first so history is idempotent.
+     *
+     * <p>Safe to call from the main thread; the underlying gateway call is
+     * async and the store update happens on the main thread via the store's
+     * listener dispatch.
+     */
+    public void loadHistory(final long dialogId, final String sessionKey) {
+        if (sessionKey == null || sessionKey.isEmpty()) return;
+        gatewayClient.sessionsHistory(sessionKey, new GatewayClient.ResultCallback<String>() {
+            @Override
+            public void onResult(boolean ok, String payloadOrNull, String errorOrNull) {
+                if (!ok || payloadOrNull == null) {
+                    android.util.Log.w("ClawChat", "loadHistory failed: " + errorOrNull);
+                    return;
+                }
+                try {
+                    java.util.List<com.clawchat.session.HistoryMessage> msgs =
+                            com.clawchat.session.SessionRepository.parseHistory(payloadOrNull);
+                    if (store instanceof ClawMessageStoreImpl) {
+                        ClawMessageStoreImpl impl = (ClawMessageStoreImpl) store;
+                        impl.clearDialog(dialogId);
+                        for (com.clawchat.session.HistoryMessage m : msgs) {
+                            ClawMessageStore.Role role;
+                            if ("user".equalsIgnoreCase(m.role)) {
+                                role = ClawMessageStore.Role.USER;
+                            } else if ("system".equalsIgnoreCase(m.role)) {
+                                role = ClawMessageStore.Role.SYSTEM;
+                            } else {
+                                role = ClawMessageStore.Role.ASSISTANT;
+                            }
+                            impl.addCompletedMessage(dialogId, sessionKey, role,
+                                    m.id, m.content, m.timestampMs);
+                        }
+                    }
+                } catch (Exception ex) {
+                    android.util.Log.e("ClawChat", "loadHistory parse failed", ex);
+                }
+            }
+        });
+    }
+
     public void cancel(long dialogId) {
         String sessionKey = bridge.sessionKeyFor(dialogId);
         if (sessionKey == null) return;

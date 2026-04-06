@@ -146,6 +146,14 @@ public class ClawChatScreenActivity extends AppCompatActivity {
         // Subscribe and initial paint
         com.clawchat.dialog.ClawSingletons.store().addListener(storeListener);
         refreshMessages();
+
+        // Load history asynchronously — router populates the store, which
+        // triggers our listener and re-renders.
+        try {
+            com.clawchat.dialog.ClawSingletons.router().loadHistory(dialogId, sessionKey);
+        } catch (Throwable t) {
+            android.util.Log.w("ClawChat", "loadHistory dispatch failed", t);
+        }
     }
 
     private void refreshMessages() {

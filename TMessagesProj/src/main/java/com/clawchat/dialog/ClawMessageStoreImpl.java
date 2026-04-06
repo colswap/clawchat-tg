@@ -178,6 +178,34 @@ public final class ClawMessageStoreImpl implements ClawMessageStore {
     }
 
     /** Mark the assistant entry with status ERROR. Used by the router on ack failure. */
+    /**
+     * Insert a historical message that is already complete (e.g. loaded from
+     * {@code sessions.history}). Unlike {@link #beginAssistant} / {@link #appendDelta},
+     * this is a single-shot insert with terminal status.
+     */
+    public void addCompletedMessage(long dialogId, String sessionKey, Role role,
+                                    String id, String content, long timestampMs) {
+        List<Entry> list = bucket(dialogId);
+        synchronized (list) {
+            Entry e = new Entry(
+                    id != null ? id : java.util.UUID.randomUUID().toString(),
+                    sessionKey, role, content == null ? "" : content,
+                    timestampMs > 0 ? timestampMs : System.currentTimeMillis(),
+                    Status.COMPLETE);
+            list.add(e);
+        }
+        notifyChanged(dialogId);
+    }
+
+    /** Wipe all entries for a dialog. Used when reloading history. */
+    public void clearDialog(long dialogId) {
+        List<Entry> list = bucket(dialogId);
+        synchronized (list) {
+            list.clear();
+        }
+        notifyChanged(dialogId);
+    }
+
     public void errorAssistant(long dialogId, String messageId) {
         List<Entry> list = bucket(dialogId);
         boolean mutated = false;
