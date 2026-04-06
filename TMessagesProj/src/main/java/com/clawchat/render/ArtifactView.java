@@ -288,16 +288,105 @@ public class ArtifactView extends FrameLayout {
      */
     private static String sanitizeSvg(String svg) {
         if (svg == null) return "";
-        String out = svg.replaceAll("(?is)<script[^>]*>.*?</script\s*>", "");
-        out = out.replaceAll("(?is)<script[^>]*/>", "");
-        // strip on*="..." event handlers (with or without quotes)
-        out = out.replaceAll("(?i)\s+on[a-z]+\s*=\s*"[^"]*"", "");
-        out = out.replaceAll("(?i)\s+on[a-z]+\s*=\s*'[^']*'", "");
-        out = out.replaceAll("(?i)\s+on[a-z]+\s*=\s*[^\s>]+", "");
-        // neutralize javascript: URLs inside href/xlink:href attrs
-        out = out.replaceAll("(?i)(href\s*=\s*")\s*javascript:", "$1about:blank#");
-        out = out.replaceAll("(?i)(href\s*=\s*')\s*javascript:", "$1about:blank#");
+        String out = svg;
+        // Strip <script>...</script> blocks (case-insensitive, non-greedy).
+        out = stripAllCaseInsensitive(out, "<script", "</script>");
+        // Strip self-closing <script .../>
+        out = stripSelfClosingScript(out);
+        // Strip on* event handler attributes and javascript: URLs.
+        out = stripEventHandlers(out);
+        out = out.replace("javascript:", "about:blank#")
+                .replace("JAVASCRIPT:", "about:blank#")
+                .replace("JavaScript:", "about:blank#");
         return out;
+    }
+
+    /** Case-insensitive strip of all blocks starting with openTag and ending with closeTag. */
+    private static String stripAllCaseInsensitive(String s, String openTag, String closeTag) {
+        StringBuilder sb = new StringBuilder(s.length());
+        String lower = s.toLowerCase();
+        String openL = openTag.toLowerCase();
+        String closeL = closeTag.toLowerCase();
+        int pos = 0;
+        while (pos < s.length()) {
+            int start = lower.indexOf(openL, pos);
+            if (start < 0) { sb.append(s, pos, s.length()); break; }
+            sb.append(s, pos, start);
+            int end = lower.indexOf(closeL, start + openL.length());
+            if (end < 0) { pos = s.length(); break; }
+            pos = end + closeL.length();
+        }
+        return sb.toString();
+    }
+
+    /** Strip <script ... /> self-closing tags. */
+    private static String stripSelfClosingScript(String s) {
+        StringBuilder sb = new StringBuilder(s.length());
+        String lower = s.toLowerCase();
+        int pos = 0;
+        while (pos < s.length()) {
+            int start = lower.indexOf("<script", pos);
+            if (start < 0) { sb.append(s, pos, s.length()); break; }
+            int gt = s.indexOf('>', start);
+            if (gt < 0) { sb.append(s, pos, s.length()); break; }
+            // is it self-closing?
+            if (gt > 0 && s.charAt(gt - 1) == '/') {
+                sb.append(s, pos, start);
+                pos = gt + 1;
+            } else {
+                // Not self-closing — leave it alone (stripAllCaseInsensitive handles block form).
+                sb.append(s, pos, gt + 1);
+                pos = gt + 1;
+            }
+        }
+        return sb.toString();
+    }
+
+    /** Strip inline on* event handlers like onclick="..." / onclick='...' / onclick=foo. */
+    private static String stripEventHandlers(String s) {
+        StringBuilder sb = new StringBuilder(s.length());
+        int i = 0;
+        while (i < s.length()) {
+            char c = s.charAt(i);
+            if ((c == ' ' || c == '\t' || c == '\n' || c == '\r')
+                    && i + 3 < s.length()
+                    && (s.charAt(i + 1) == 'o' || s.charAt(i + 1) == 'O')
+                    && (s.charAt(i + 2) == 'n' || s.charAt(i + 2) == 'N')) {
+                // find '=' after the attribute name
+                int eq = s.indexOf('=', i + 3);
+                if (eq < 0) { sb.append(s, i, s.length()); break; }
+                // ensure the name chars between i+1 and eq are letters (attribute name, no spaces)
+                boolean looksLikeHandler = true;
+                for (int k = i + 3; k < eq; k++) {
+                    char kc = s.charAt(k);
+                    if (!((kc >= 'a' && kc <= 'z') || (kc >= 'A' && kc <= 'Z'))) {
+                        looksLikeHandler = false;
+                        break;
+                    }
+                }
+                if (!looksLikeHandler) { sb.append(c); i++; continue; }
+                // skip whitespace after =
+                int v = eq + 1;
+                while (v < s.length() && (s.charAt(v) == ' ' || s.charAt(v) == '\t')) v++;
+                if (v >= s.length()) { i = s.length(); break; }
+                char q = s.charAt(v);
+                int end;
+                if (q == '"' || q == '\'') {
+                    end = s.indexOf(q, v + 1);
+                    if (end < 0) { i = s.length(); break; }
+                    i = end + 1;
+                } else {
+                    end = v;
+                    while (end < s.length() && s.charAt(end) != ' ' && s.charAt(end) != '>' && s.charAt(end) != '\t') end++;
+                    i = end;
+                }
+                // drop; do not emit anything
+            } else {
+                sb.append(c);
+                i++;
+            }
+        }
+        return sb.toString();
     }
 
     private int dp(int v) {
