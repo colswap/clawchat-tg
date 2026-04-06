@@ -153,7 +153,7 @@ public final class SessionRepository {
      * Expected format:
      * <pre>{"messages":[{"id":"...","role":"user","content":"...","timestampMs":...}]}</pre>
      */
-    static List<HistoryMessage> parseHistory(String json) throws Exception {
+    public static List<HistoryMessage> parseHistory(String json) throws Exception {
         List<HistoryMessage> out = new ArrayList<>();
         JSONObject root = new JSONObject(json.trim());
         JSONArray arr = root.optJSONArray("messages");
