@@ -231,6 +231,12 @@ public class ArtifactView extends FrameLayout {
 
     private String reactTemplate(String jsx) {
         // TODO: inline react/react-dom/babel into assets to remove online dependency.
+        // Security: escape </script> so agent-supplied JSX cannot break out of
+        // the <script type='text/babel'> container. Note that Babel still
+        // evaluates the jsx as code — the agent itself is trusted to produce
+        // non-malicious JSX. This guard only prevents accidental / crafted
+        // breakouts into the host document context.
+        String safeJsx = escapeForScriptBody(jsx);
         return "<!DOCTYPE html><html><head><meta charset='utf-8'>"
                 + "<style>body{margin:0;padding:12px;font-family:sans-serif;}</style>"
                 + "<script src='" + REACT_CDN + "'></script>"
@@ -239,22 +245,59 @@ public class ArtifactView extends FrameLayout {
                 + "</head><body>"
                 + "<div id='root'></div>"
                 + "<script type='text/babel'>\n"
-                + jsx + "\n"
+                + safeJsx + "\n"
                 + "</script>"
                 + "</body></html>";
     }
 
     private String svgTemplate(String svg) {
+        // Security: SVG can contain <script> and on* event handlers. Since the
+        // WebView has JS enabled (required for mermaid/react), strip those
+        // before embedding so a crafted SVG artifact cannot exfiltrate data or
+        // hijack the rendering context.
+        String safeSvg = sanitizeSvg(svg);
         return "<!DOCTYPE html><html><head><meta charset='utf-8'>"
                 + "<style>body{margin:0;padding:12px;display:flex;justify-content:center;align-items:center;}"
                 + "svg{max-width:100%;height:auto;}</style>"
-                + "</head><body>" + svg + "</body></html>";
+                + "</head><body>" + safeSvg + "</body></html>";
     }
 
     private static String escapeHtml(String s) {
         return s.replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;");
+    }
+
+
+
+    /**
+     * Escape a string so that it can be safely embedded inside a &lt;script&gt;
+     * tag body without allowing the content to break out via a closing
+     * &lt;/script&gt; tag. Does not protect against other XSS vectors.
+     */
+    private static String escapeForScriptBody(String s) {
+        if (s == null) return "";
+        return s.replace("</script", "<\\/script").replace("</SCRIPT", "<\\/SCRIPT");
+    }
+
+    /**
+     * Best-effort sanitize an SVG blob: strip &lt;script&gt; tags and inline
+     * on* event handlers. This is not a full SVG sanitizer but removes the
+     * obvious injection vectors before embedding the SVG in a WebView that has
+     * JavaScript enabled.
+     */
+    private static String sanitizeSvg(String svg) {
+        if (svg == null) return "";
+        String out = svg.replaceAll("(?is)<script[^>]*>.*?</script\s*>", "");
+        out = out.replaceAll("(?is)<script[^>]*/>", "");
+        // strip on*="..." event handlers (with or without quotes)
+        out = out.replaceAll("(?i)\s+on[a-z]+\s*=\s*"[^"]*"", "");
+        out = out.replaceAll("(?i)\s+on[a-z]+\s*=\s*'[^']*'", "");
+        out = out.replaceAll("(?i)\s+on[a-z]+\s*=\s*[^\s>]+", "");
+        // neutralize javascript: URLs inside href/xlink:href attrs
+        out = out.replaceAll("(?i)(href\s*=\s*")\s*javascript:", "$1about:blank#");
+        out = out.replaceAll("(?i)(href\s*=\s*')\s*javascript:", "$1about:blank#");
+        return out;
     }
 
     private int dp(int v) {

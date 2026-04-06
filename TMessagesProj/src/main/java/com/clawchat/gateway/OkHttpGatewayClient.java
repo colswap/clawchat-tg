@@ -462,4 +462,29 @@ public class OkHttpGatewayClient implements GatewayClient {
             handleClose(1006, t.getMessage() != null ? t.getMessage() : "unknown error");
         }
     }
+    /**
+     * Release the underlying OkHttp resources. Safe to call multiple times.
+     * Intended to be invoked from a future {@code ClawBootstrap.shutdown()}
+     * hook — currently there is no such hook, so this exists mostly to prevent
+     * thread/connection-pool leaks in tests and future shutdown paths.
+     */
+    public void dispose() {
+        try {
+            disconnect();
+        } catch (Exception ignored) {
+        }
+        OkHttpClient c = httpClient;
+        if (c != null) {
+            try {
+                c.dispatcher().executorService().shutdown();
+            } catch (Exception ignored) {
+            }
+            try {
+                c.connectionPool().evictAll();
+            } catch (Exception ignored) {
+            }
+            httpClient = null;
+        }
+    }
+
 }

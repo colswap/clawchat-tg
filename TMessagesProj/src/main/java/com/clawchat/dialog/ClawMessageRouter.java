@@ -57,8 +57,13 @@ public final class ClawMessageRouter {
         if (event == null || event.event == null || event.payload == null) return;
         String type = event.event;
         JSONObject p = event.payload;
+        // Accept both "sessionKey" and "key" until the OpenClaw protocol shape
+        // is verified against a live server. See code review CRITICAL #2.
         String sessionKey = p.optString("sessionKey", null);
-        if (sessionKey == null) return;
+        if (sessionKey == null || sessionKey.isEmpty()) {
+            sessionKey = p.optString("key", null);
+        }
+        if (sessionKey == null || sessionKey.isEmpty()) return;
 
         // Resolve sessionKey -> dialogId (allocate if necessary so late-arriving
         // events for a known session still land in the right bucket).

@@ -115,8 +115,10 @@ public final class SessionRepository {
         for (int i = 0; i < arr.length(); i++) {
             JSONObject o = arr.optJSONObject(i);
             if (o == null) continue;
+            String sk = o.optString("key", "");
+            if (sk.isEmpty()) sk = o.optString("sessionKey", "");
             out.add(new SessionInfo(
-                    o.optString("key", ""),
+                    sk,
                     o.optString("label", ""),
                     o.optLong("lastActivityMs", 0L),
                     o.optString("lastMessage", ""),
@@ -136,6 +138,7 @@ public final class SessionRepository {
         JSONObject o = root.optJSONObject("session");
         if (o == null) o = root;
         String key = o.optString("key", "");
+        if (key.isEmpty()) key = o.optString("sessionKey", "");
         if (key.isEmpty()) throw new IllegalStateException("missing session key");
         return new SessionInfo(
                 key,

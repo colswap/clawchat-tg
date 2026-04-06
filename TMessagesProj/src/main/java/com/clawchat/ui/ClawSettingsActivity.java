@@ -44,6 +44,11 @@ public class ClawSettingsActivity extends AppCompatActivity {
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
+    // Test-connection state — kept as fields so onDestroy can release them
+    // when the Activity is torn down before a response arrives.
+    private GatewayClient.ConnectionStateListener testConnListener;
+    private Runnable testConnTimeout;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -179,9 +184,34 @@ public class ClawSettingsActivity extends AppCompatActivity {
             }
         };
 
+        // Publish to instance fields so onDestroy() can tear these down if the
+        // Activity is killed before the CONNECTED/ERROR/timeout resolution.
+        this.testConnListener = listenerHolder[0];
+        this.testConnTimeout = timeout;
+
         client.addConnectionStateListener(listenerHolder[0]);
         mainHandler.postDelayed(timeout, Extra.TEST_CONNECTION_TIMEOUT_MS);
         client.connect();
+    }
+
+    @Override
+    protected void onDestroy() {
+        try {
+            if (testConnTimeout != null) {
+                mainHandler.removeCallbacks(testConnTimeout);
+                testConnTimeout = null;
+            }
+            if (testConnListener != null) {
+                try {
+                    ClawBootstrap.gatewayClient().removeConnectionStateListener(testConnListener);
+                } catch (IllegalStateException ignored) {
+                    // bootstrap tore down before us — nothing to unregister
+                }
+                testConnListener = null;
+            }
+        } finally {
+            super.onDestroy();
+        }
     }
 
     private void onSaveSilent() {
