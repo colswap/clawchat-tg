@@ -3,9 +3,6 @@ package com.clawchat;
 import android.app.Application;
 import android.util.Log;
 
-import com.clawchat.dialog.ClawDialogBridgeImpl;
-import com.clawchat.dialog.ClawMessageRouter;
-import com.clawchat.dialog.ClawMessageStoreImpl;
 import com.clawchat.dialog.ClawSingletons;
 import com.clawchat.gateway.GatewayClient;
 import com.clawchat.gateway.SubagentManager;
@@ -46,21 +43,17 @@ public final class ClawBootstrap {
         Log.i(TAG, "ClawChat bootstrap starting (version=" + Extra.CLAW_VERSION
                 + ", flavor=" + Extra.CLAW_BUILD_FLAVOR + ")");
 
-        ClawChatConfig config = ClawChatConfig.get(app);
+        // Gateway auth (Agent A) — wraps ClawChatConfig + device id.
+        com.clawchat.gateway.GatewayAuth auth = new com.clawchat.gateway.GatewayAuth(app);
 
-        // Gateway client — provided by Agent A.
-        gatewayClient = new com.clawchat.gateway.OkHttpGatewayClient(app, config); // Provided by Agent A
+        // Gateway client — Agent A. Ctor is (Context, GatewayAuth).
+        gatewayClient = new com.clawchat.gateway.OkHttpGatewayClient(app, auth);
 
-        // Subagent manager — provided by Agent E. It subscribes to gateway events.
+        // Subagent manager (Agent E) subscribes itself in its ctor; do not add again.
         subagentManager = new SubagentManager(gatewayClient);
-        gatewayClient.addEventListener(subagentManager);
 
-        // Dialog bridge / message store / router — provided by Agent C.
-        ClawDialogBridgeImpl dialogBridge = new ClawDialogBridgeImpl(app);
-        ClawMessageStoreImpl messageStore = new ClawMessageStoreImpl();
-        ClawMessageRouter messageRouter = new ClawMessageRouter(gatewayClient, dialogBridge, messageStore);
-
-        ClawSingletons.initialize(dialogBridge, messageStore, messageRouter);
+        // Dialog singletons (Agent C). initialize() builds bridge/store/router internally.
+        ClawSingletons.initialize(app, gatewayClient);
 
         initialized = true;
         Log.i(TAG, "ClawChat bootstrap complete");
