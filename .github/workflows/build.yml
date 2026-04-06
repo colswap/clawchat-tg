@@ -2,7 +2,7 @@ name: Build ClawChat APK
 
 on:
   push:
-    branches: [master, develop]
+    branches: [master, develop, feat/claw-integration]
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -25,7 +25,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build Debug APK
-        run: ./gradlew TMessagesProj:assembleAfatDebug
+        run: ./gradlew :TMessagesProj:compileBundleAfatDebugJavaWithJavac --warning-mode=none --no-daemon
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
