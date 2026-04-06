@@ -13183,6 +13183,21 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 });
             }
 
+            // hook(clawchat): ClawChat menu entries — shown unconditionally.
+            io.addGap();
+            io.add(R.drawable.msg_bots, "ClawChat", () -> {
+                android.app.Activity act = getParentActivity();
+                if (act != null) {
+                    act.startActivity(new android.content.Intent(act, com.clawchat.ui.ClawConversationListActivity.class));
+                }
+            });
+            io.add(R.drawable.msg_settings, "ClawChat Settings", () -> {
+                android.app.Activity act = getParentActivity();
+                if (act != null) {
+                    act.startActivity(new android.content.Intent(act, com.clawchat.ui.ClawSettingsActivity.class));
+                }
+            });
+
             if (proxyMenuSubItem != null) {
                 proxyMenuSubItem.setOnClickListener(v -> {
                     io.dismiss();

@@ -289,6 +289,13 @@ public class ApplicationLoader extends Application {
 
         super.onCreate();
 
+        // hook(clawchat): bootstrap ClawChat singletons (gateway, dialog bridge, subagents).
+        try {
+            com.clawchat.ClawBootstrap.initialize(this);
+        } catch (Throwable t) {
+            android.util.Log.e("ClawChat", "bootstrap failed", t);
+        }
+
         if (BuildVars.LOGS_ENABLED) {
             FileLog.d("app start time = " + (startTime = SystemClock.elapsedRealtime()));
             try {
