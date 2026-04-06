@@ -28,11 +28,11 @@ jobs:
         run: ./gradlew :TMessagesProj:compileDebugJavaWithJavac --warning-mode=none --no-daemon
 
       - name: Build Standalone Debug APK
-        run: ./gradlew :TMessagesProj_AppStandalone:assembleAfatStandaloneDebug --warning-mode=none --no-daemon || ./gradlew :TMessagesProj_AppStandalone:tasks --warning-mode=none --no-daemon 2>&1 | tail -80
+        run: ./gradlew :TMessagesProj_AppStandalone:assembleStandalone --warning-mode=none --no-daemon
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: clawchat-debug
-          path: TMessagesProj/build/outputs/apk/afat/debug/*.apk
+          path: TMessagesProj_AppStandalone/build/outputs/apk/**/*.apk
           retention-days: 14
