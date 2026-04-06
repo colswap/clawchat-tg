@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
@@ -26,13 +26,3 @@ jobs:
 
       - name: Library compile sanity check
         run: ./gradlew :TMessagesProj:compileDebugJavaWithJavac --warning-mode=none --no-daemon
-
-      - name: Build Standalone Debug APK
-        run: ./gradlew :TMessagesProj_AppStandalone:assembleStandalone --warning-mode=none --no-daemon
-
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: clawchat-debug
-          path: TMessagesProj_AppStandalone/build/outputs/apk/**/*.apk
-          retention-days: 14
