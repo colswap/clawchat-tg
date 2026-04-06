@@ -689,6 +689,12 @@
             android:label="ClawChat"
             android:theme="@style/Theme.AppCompat" />
         <activity
+            android:name="com.clawchat.ui.ClawChatScreenActivity"
+            android:exported="false"
+            android:label="ClawChat"
+            android:theme="@style/Theme.AppCompat"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
+        <activity
             android:name="com.clawchat.ui.ClawSettingsActivity"
             android:exported="false"
             android:label="ClawChat Settings"

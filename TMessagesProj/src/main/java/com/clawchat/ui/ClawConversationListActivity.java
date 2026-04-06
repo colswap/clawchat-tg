@@ -250,14 +250,8 @@ public class ClawConversationListActivity extends AppCompatActivity {
     private void openSession(SessionInfo s) {
         if (s == null || s.key == null || s.key.isEmpty()) return;
         try {
-            ClawDialogBridge bridge = com.clawchat.dialog.ClawSingletons.bridge();
-            long dialogId = bridge.allocateDialogId(s.key);
-
-            Intent intent = new Intent();
-            intent.setClassName(getPackageName(), LAUNCH_ACTIVITY_CLASS);
-            intent.putExtra(EXTRA_CLAW_OPEN_DIALOG_ID, dialogId);
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            startActivity(intent);
+            // Launch our own chat screen directly; no more LaunchActivity detour.
+            startActivity(ClawChatScreenActivity.launchIntent(this, s.key, s.label));
         } catch (Throwable t) {
             Toast.makeText(this, "Unable to open conversation: " + t.getMessage(),
                     Toast.LENGTH_LONG).show();
