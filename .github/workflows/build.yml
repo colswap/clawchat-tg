@@ -25,7 +25,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build Debug APK
-        run: ./gradlew :TMessagesProj:compileBundleAfatDebugJavaWithJavac --warning-mode=none --no-daemon
+        run: ./gradlew :TMessagesProj:compileDebugJavaWithJavac --warning-mode=none --no-daemon
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
