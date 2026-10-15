@@ -86,12 +86,13 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.ColorUtils;
+import androidx.core.graphics.Insets;
 import androidx.core.math.MathUtils;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.LinearSmoothScrollerCustom;
+import org.telegram.ui.recyclerview.LinearSmoothScrollerCustom;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager.widget.ViewPager;
 
@@ -214,6 +215,7 @@ import org.telegram.ui.Stars.StarsController;
 import org.telegram.ui.Stars.StarsIntroActivity;
 import org.telegram.ui.Stories.StealthModeAlert;
 import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
+import org.telegram.ui.Wallet.WalletActivity;
 import org.telegram.ui.bots.BotWebViewSheet;
 import org.telegram.ui.Components.Bulletin;
 import org.telegram.ui.Components.BulletinFactory;
@@ -1118,7 +1120,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     blurredView.draw(canvas);
                 }
             }
-            if (!hasMainTabs) {
+            if (!hasMainTabs && communityId == 0) {
                 AndroidUtilities.drawNavigationBarProtection(canvas, this, getThemedColor(Theme.key_windowBackgroundWhite), navigationBarHeight);
             }
             wasDrawn = true;
@@ -1231,6 +1233,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             int keyboardSize = measureKeyboardHeight();
             setBottomClip(paddingBottom);
 
+            final int W = getMeasuredWidth();
+            final int H = getMeasuredHeight();
+
             for (int i = 0; i < count; i++) {
                 final View child = getChildAt(i);
                 if (child == null || child.getVisibility() == GONE) {
@@ -1254,10 +1259,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
                 switch (absoluteGravity & Gravity.HORIZONTAL_GRAVITY_MASK) {
                     case Gravity.CENTER_HORIZONTAL:
-                        childLeft = (r - l - width) / 2 + lp.leftMargin - lp.rightMargin;
+                        childLeft = (W - width) / 2 + lp.leftMargin - lp.rightMargin;
                         break;
                     case Gravity.RIGHT:
-                        childLeft = r - width - lp.rightMargin;
+                        childLeft = W - width - lp.rightMargin;
                         break;
                     case Gravity.LEFT:
                     default:
@@ -1269,10 +1274,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                         childTop = lp.topMargin + getPaddingTop();
                         break;
                     case Gravity.CENTER_VERTICAL:
-                        childTop = ((b - paddingBottom) - t - height) / 2 + lp.topMargin - lp.bottomMargin;
+                        childTop = ((H - paddingBottom) - height) / 2 + lp.topMargin - lp.bottomMargin;
                         break;
                     case Gravity.BOTTOM:
-                        childTop = ((b - paddingBottom) - t) - height - lp.bottomMargin;
+                        childTop = ((H - paddingBottom)) - height - lp.bottomMargin;
                         break;
                     default:
                         childTop = lp.topMargin;
@@ -2823,7 +2828,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
 
     private NotificationCenter.ObserversGroup observersGroup;
-    private NotificationCenter.ObserversGroup globalObserversGroup;
 
     @Override
     public boolean onFragmentCreate() {
@@ -2884,15 +2888,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
 
         observersGroup = getNotificationCenter().createObserversGroup(this);
-        globalObserversGroup = NotificationCenter.getGlobalInstance().createObserversGroup(this);
 
         if (searchString == null) {
             currentConnectionState = getConnectionsManager().getConnectionState();
 
-            globalObserversGroup.add(NotificationCenter.emojiLoaded);
+            observersGroup.addGlobal(NotificationCenter.emojiLoaded);
             if (!onlySelect) {
-                globalObserversGroup.add(NotificationCenter.closeSearchByActiveAction);
-                globalObserversGroup.add(NotificationCenter.proxySettingsChanged);
+                observersGroup.addGlobal(NotificationCenter.closeSearchByActiveAction);
+                observersGroup.addGlobal(NotificationCenter.proxySettingsChanged);
                 observersGroup.add(NotificationCenter.filterSettingsUpdated);
                 observersGroup.add(NotificationCenter.dialogsUnreadCounterChanged);
             }
@@ -2923,7 +2926,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 .add(NotificationCenter.userEmojiStatusUpdated)
                 .add(NotificationCenter.currentUserPremiumStatusChanged);
 
-            globalObserversGroup.add(NotificationCenter.didSetPasscode);
+            observersGroup.addGlobal(NotificationCenter.didSetPasscode);
         }
         observersGroup
             .add(NotificationCenter.messagesDeleted)
@@ -3070,10 +3073,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         if (observersGroup != null) {
             observersGroup.removeAllObservers();
             observersGroup = null;
-        }
-        if (globalObserversGroup != null) {
-            globalObserversGroup.removeAllObservers();
-            globalObserversGroup = null;
         }
 
         if (commentView != null) {
@@ -4829,7 +4828,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     topPanelLayout.setViewVisible(fragmentLocationContextViewWrapper, visibility == VISIBLE);
                 }
             };
-            fragmentLocationContextView.isInsideBubble = true;
             fragmentLocationContextViewWrapper.addView(fragmentLocationContextView);
 
             fragmentContextView = new FragmentContextView(context, this, false) {
@@ -4838,8 +4836,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     topPanelLayout.setViewVisible(fragmentContextViewWrapper, visibility == VISIBLE);
                 }
             };
-            fragmentContextView.isInsideBubble = true;
             fragmentContextViewWrapper.addView(fragmentContextView);
+            topPanelLayout.setCallFragmentContextView(fragmentContextView);
 
             dialogsHintCell = new DialogsHintCell(context);
             dialogsHintCell.setBackground(Theme.getSelectorDrawable(false));
@@ -8001,7 +7999,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
 
 
-            if ((!getMessagesController().isForum(dialogId) || isBotForumWithEmptyTopics(dialogId)) && (!selectedDialogs.isEmpty() || (initialDialogsType == DIALOGS_TYPE_FORWARD && selectAlertString != null))) {
+            if ((!getMessagesController().isForum(dialogId) && !getMessagesController().isCommunity(dialogId) || isBotForumWithEmptyTopics(dialogId)) && (!selectedDialogs.isEmpty() || (initialDialogsType == DIALOGS_TYPE_FORWARD && selectAlertString != null))) {
                 if (!selectedDialogs.contains(dialogId) && !checkCanWrite(dialogId)) {
                     return;
                 }
@@ -11658,6 +11656,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         return folderId == 1;
     }
 
+    public boolean isCommunity() {
+        return communityId != 0;
+    }
+
     public int getType() {
         return initialDialogsType;
     }
@@ -13729,27 +13731,33 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         if (ApplicationLoader.applicationLoaderInstance != null) {
             ApplicationLoader.applicationLoaderInstance.addItemOptions(io);
         }
-        TLRPC.TL_attachMenuBots menuBots = MediaDataController.getInstance(UserConfig.selectedAccount).getAttachMenuBots();
-        if (launchActivity != null && menuBots != null && menuBots.bots != null && !menuBots.bots.isEmpty()) {
-            for (TLRPC.TL_attachMenuBot attachMenuBot : menuBots.bots) {
-                if (attachMenuBot.show_in_side_menu) {
-                    io.addBot(attachMenuBot, () -> {
-                        if (attachMenuBot.inactive || attachMenuBot.side_menu_disclaimer_needed) {
-                            WebAppDisclaimerAlert.show(getContext(), (allowSendMessage) -> {
-                                TLRPC.TL_messages_toggleBotInAttachMenu botRequest = new TLRPC.TL_messages_toggleBotInAttachMenu();
-                                botRequest.bot = MessagesController.getInstance(currentAccount).getInputUser(attachMenuBot.bot_id);
-                                botRequest.enabled = true;
-                                botRequest.write_allowed = true;
-                                ConnectionsManager.getInstance(currentAccount).sendRequest(botRequest, (response2, error2) -> AndroidUtilities.runOnUIThread(() -> {
-                                    attachMenuBot.inactive = attachMenuBot.side_menu_disclaimer_needed = false;
-                                    LaunchActivity.showAttachMenuBot(launchActivity, currentAccount, attachMenuBot, null, true);
-                                    MediaDataController.getInstance(currentAccount).updateAttachMenuBotsInCache();
-                                }), ConnectionsManager.RequestFlagInvokeAfter | ConnectionsManager.RequestFlagFailOnServerErrors);
-                            }, null, null);
-                        } else {
-                            LaunchActivity.showAttachMenuBot(launchActivity, currentAccount, attachMenuBot, null, true);
-                        }
-                    }, () -> BotWebViewSheet.deleteBot(currentAccount, attachMenuBot.bot_id, null));
+        if (getMessagesController().config.walletAvailable.get()) {
+            io.add(R.drawable.ic_gram, LocaleController.getString(R.string.WalletAttachMoney), () -> {
+                presentFragment(new WalletActivity());
+            });
+        } else {
+            TLRPC.TL_attachMenuBots menuBots = MediaDataController.getInstance(UserConfig.selectedAccount).getAttachMenuBots();
+            if (launchActivity != null && menuBots != null && menuBots.bots != null && !menuBots.bots.isEmpty()) {
+                for (TLRPC.TL_attachMenuBot attachMenuBot : menuBots.bots) {
+                    if (attachMenuBot.show_in_side_menu) {
+                        io.addBot(attachMenuBot, () -> {
+                            if (attachMenuBot.inactive || attachMenuBot.side_menu_disclaimer_needed) {
+                                WebAppDisclaimerAlert.show(getContext(), (allowSendMessage) -> {
+                                    TLRPC.TL_messages_toggleBotInAttachMenu botRequest = new TLRPC.TL_messages_toggleBotInAttachMenu();
+                                    botRequest.bot = MessagesController.getInstance(currentAccount).getInputUser(attachMenuBot.bot_id);
+                                    botRequest.enabled = true;
+                                    botRequest.write_allowed = true;
+                                    ConnectionsManager.getInstance(currentAccount).sendRequest(botRequest, (response2, error2) -> AndroidUtilities.runOnUIThread(() -> {
+                                        attachMenuBot.inactive = attachMenuBot.side_menu_disclaimer_needed = false;
+                                        LaunchActivity.showAttachMenuBot(launchActivity, currentAccount, attachMenuBot, null, true);
+                                        MediaDataController.getInstance(currentAccount).updateAttachMenuBotsInCache();
+                                    }), ConnectionsManager.RequestFlagInvokeAfter | ConnectionsManager.RequestFlagFailOnServerErrors);
+                                }, null, null);
+                            } else {
+                                LaunchActivity.showAttachMenuBot(launchActivity, currentAccount, attachMenuBot, null, true);
+                            }
+                        }, () -> BotWebViewSheet.deleteBot(currentAccount, attachMenuBot.bot_id, null));
+                    }
                 }
             }
         }
@@ -13803,8 +13811,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private WindowInsetsCompat onApplyWindowInsets(@NonNull View v, @NonNull WindowInsetsCompat insets) {
         windowInsetsStateHolder.setInsets(insets);
 
-        statusBarHeight = insets.getInsets(WindowInsetsCompat.Type.systemBars()).top;
-        navigationBarHeight = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom;
+        final Insets systemInsets = AndroidUtilities.getDefaultWindowInsets(insets, false);
+        statusBarHeight = systemInsets.top;
+        navigationBarHeight = systemInsets.bottom;
         final int imeInsetHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
         if (this.imeInsetHeight != imeInsetHeight) {
             this.imeInsetHeight = imeInsetHeight;
