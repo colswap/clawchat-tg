@@ -155,6 +155,12 @@ public class ItemOptions {
 
     private boolean blur;
     private boolean blurForMenu;
+    private boolean longPressSelectionEnabled = true;
+
+    public ItemOptions setLongPressSelectionEnabled(boolean enabled) {
+        longPressSelectionEnabled = enabled;
+        return this;
+    }
 
     public ItemOptions setBlur(boolean blur, boolean blurForMenu) {
         this.blur = blur;
@@ -339,6 +345,10 @@ public class ItemOptions {
         return add(iconResId, text, false, onClickListener);
     }
 
+    public ItemOptions add(int iconResId, CharSequence text, CharSequence subtext, Runnable onClickListener) {
+        return add(iconResId, null, text, subtext, Theme.key_actionBarDefaultSubmenuItemIcon, Theme.key_actionBarDefaultSubmenuItem, onClickListener);
+    }
+
     public ItemOptions add(Drawable icon, CharSequence text, Runnable onClickListener) {
         return add(0, icon, text, Theme.key_actionBarDefaultSubmenuItemIcon, Theme.key_actionBarDefaultSubmenuItem, onClickListener);
     }
@@ -356,6 +366,10 @@ public class ItemOptions {
     }
 
     public ItemOptions add(int iconResId, Drawable iconDrawable, CharSequence text, int iconColorKey, int textColorKey, Runnable onClickListener) {
+        return add(iconResId, iconDrawable, text, null, iconColorKey, textColorKey, onClickListener);
+    }
+
+    public ItemOptions add(int iconResId, Drawable iconDrawable, CharSequence text, CharSequence subtext, int iconColorKey, int textColorKey, Runnable onClickListener) {
         if (context == null) {
             return this;
         }
@@ -366,6 +380,9 @@ public class ItemOptions {
             subItem.setTextAndIcon(text, iconResId, iconDrawable);
         } else {
             subItem.setText(text);
+        }
+        if (!TextUtils.isEmpty(subtext)) {
+            subItem.setSubtext(subtext);
         }
 
         subItem.setColors(textColor != null ? textColor : Theme.getColor(textColorKey, resourcesProvider), iconColor != null ? iconColor : Theme.getColor(iconColorKey, resourcesProvider));
@@ -446,7 +463,7 @@ public class ItemOptions {
         final int textColorKey = Theme.key_actionBarDefaultSubmenuItem;
         final int iconColorKey = Theme.key_actionBarDefaultSubmenuItemIcon;
 
-        ActionBarMenuSubItem subItem = new ActionBarMenuSubItem(context, iconResId != 0 ? 2 : 1, false, false, resourcesProvider);
+        ActionBarMenuSubItem subItem = new ActionBarMenuSubItem(context, iconResId != 0 || icon != null ? 2 : 1, false, false, resourcesProvider);
         subItem.setPadding(dp(18), 0, dp(18), 0);
         if (icon != null) {
             subItem.setTextAndIcon(text, 0, icon);
@@ -1470,12 +1487,14 @@ public class ItemOptions {
             }
         }
 
-//        // discard all scrolls/gestures
-//        if (fragment != null && fragment.getFragmentView() != null) {
-//            fragment.getFragmentView().getRootView().dispatchTouchEvent(AndroidUtilities.emptyMotionEvent());
-//        } else if (this.container != null) {
-//            container.dispatchTouchEvent(AndroidUtilities.emptyMotionEvent());
-//        }
+        if (!longPressSelectionEnabled) {
+            // End the gesture that opened the menu so its source view cannot keep scrolling.
+            if (fragment != null && fragment.getFragmentView() != null) {
+                fragment.getFragmentView().getRootView().dispatchTouchEvent(AndroidUtilities.emptyMotionEvent());
+            } else if (this.container != null) {
+                container.dispatchTouchEvent(AndroidUtilities.emptyMotionEvent());
+            }
+        }
 
         if (blurForMenu && scrimBlur3SourceBitmap != null) {
             setGapBackgroundColor(Theme.multAlpha(Theme.getColor(Theme.key_actionBarDefaultSubmenuItem, resourcesProvider), 0.06f));
@@ -1498,7 +1517,9 @@ public class ItemOptions {
             (int) (offsetY = (Y + this.translateY))
         );
 
-        installHoverReleaseListener();
+        if (longPressSelectionEnabled) {
+            installHoverReleaseListener();
+        }
 
         if (followScrim) {
             installFollowListeners();
@@ -1658,6 +1679,21 @@ public class ItemOptions {
         return this;
     }
 
+    public static void setGapBackgroundColor(ViewGroup viewGroup, int color) {
+        if (viewGroup == null) {
+            return;
+        }
+
+        for (int j = 0; j < viewGroup.getChildCount(); ++j) {
+            final View child = viewGroup.getChildAt(j);
+            if (child instanceof ActionBarPopupWindow.GapView) {
+                ((ActionBarPopupWindow.GapView) child).setColor(color);
+            } else if (child instanceof ViewGroup) {
+                setGapBackgroundColor((ViewGroup) child, color);
+            }
+        }
+    }
+    
     private Integer gapBackgroundColor;
     public ItemOptions setGapBackgroundColor(int color) {
         gapBackgroundColor = color;
