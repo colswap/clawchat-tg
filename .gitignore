@@ -13,6 +13,10 @@ TMessagesProj_App/afat/
 TMessagesProj_AppHockeyApp/afat/
 TMessagesProj_AppStandalone/afat/
 TMessagesProj_AppHuawei/afat/
+<<<<<<< HEAD
 
 # ClawChat
 clawchat.keystore
+=======
+TMessagesProj/jni/ffmpeg/build_android
+>>>>>>> upstream/master
